@@ -6,7 +6,7 @@ end
 
 vim.api.nvim_set_var("suda_did_setup", true)
 
-if vim.api.nvim_get_var("suda_smart_edit") then
+if vim.g.suda_smart_edit then
   local augroup_suda_smart_edit =
     vim.api.nvim_create_augroup("suda_smart_edit", { clear = true })
 
