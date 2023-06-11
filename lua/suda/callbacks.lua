@@ -1,10 +1,10 @@
 local M = {}
 
-if vim.api.nvim_get_var("suda_no_pass") == nil then
+if vim.g.suda_no_pass == nil then
   vim.api.nvim_set_var("suda_no_pass", false)
 end
 
-if vim.api.nvim_get_var("suda_prompt") == nil then
+if vim.g.suda_prompt == nil then
   vim.api.nvim_set_var("suda_prompt", "Password: ")
 end
 

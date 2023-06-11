@@ -1,6 +1,6 @@
 local callbacks = require("suda.callbacks")
 
-if vim.api.nvim_get_var("suda_did_setup") then
+if vim.g.suda_did_setup then
   return
 end
 
