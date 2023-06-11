@@ -1,4 +1,4 @@
-local callbacks = require("callbacks.lua")
+local callbacks = require("callbacks")
 
 if vim.api.nvim_get_var("suda_did_setup") then
   return
