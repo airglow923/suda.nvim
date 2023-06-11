@@ -1,7 +1,7 @@
 local M = {}
 
 function M.setup(config)
-  require("autocmd")
+  require("suda.autocmd")
 end
 
 return M
