@@ -1,5 +1,7 @@
 local M = {}
 
-require("autocmd")
+function M.setup(config)
+  require("autocmd")
+end
 
 return M
