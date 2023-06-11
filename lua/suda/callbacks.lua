@@ -34,7 +34,7 @@ local function SudaSystem(cmd, ...)
     cmd = vim.fn.printf("sudo -p '' -n %s", cmd)
   end
 
-  if vim.api.nvim_get_option_value("verbose") then
+  if vim.api.nvim_get_option_value("verbose", {}) then
     local txt = vim.fn.printf("[sudo] %s", cmd)
     vim.api.nvim_echo({ { txt } }, true, {})
   end
@@ -86,15 +86,15 @@ local function SudaRead(expr, ...)
     local result
 
     if
-      vim.regex("%s"):match_str(vim.api.nvim_get_option_value("shellredir"))
+      vim.regex("%s"):match_str(vim.api.nvim_get_option_value("shellredir", {}))
       ~= nil
     then
       redirect = vim.fn.printf(
-        vim.api.nvim_get_option_value("shellredir"),
+        vim.api.nvim_get_option_value("shellredir", {}),
         vim.fn.shellescape(tempfile)
       )
     else
-      redirect = vim.api.nvim_get_option_value("shellredir")
+      redirect = vim.api.nvim_get_option_value("shellredir", {})
         .. vim.fn.shellescape(tempfile)
     end
 
@@ -245,7 +245,7 @@ end
 local function SudaBufReadCmd()
   vim.cmd.doautocmd({ args = { "<nomodeline>", "BufReadPre" } })
 
-  local ul = vim.api.nvim_get_option_value("undolevels")
+  local ul = vim.api.nvim_get_option_value("undolevels", {})
 
   vim.api.nvim_set_option_value("undolevels", -1, {})
 
