@@ -1,6 +1,6 @@
 local M = {}
 
-function M.setup(config)
+function M.setup(opts)
   require("suda.autocmd")
 end
 
