@@ -1,12 +1,6 @@
+local configs = require("suda.configs")
+
 local M = {}
-
-if vim.g.suda_no_pass == nil then
-  vim.api.nvim_set_var("suda_no_pass", false)
-end
-
-if vim.g.suda_prompt == nil then
-  vim.api.nvim_set_var("suda_prompt", "Password: ")
-end
 
 local function escape_patterns(expr)
   return vim.fn.escape(expr, "^$~.*[]\\")
@@ -28,7 +22,7 @@ end
 local function SudaSystem(cmd, ...)
   local varargs = { ... }
 
-  if vim.fn.has("win32") or vim.api.nvim_get_var("suda_no_pass") then
+  if vim.fn.has("win32") or configs.user_opts.no_pass then
     cmd = vim.fn.printf("sudo %s", cmd)
   else
     cmd = vim.fn.printf("sudo -p '' -n %s", cmd)
@@ -51,7 +45,7 @@ local function SudaSystem(cmd, ...)
   pcall(function()
     vim.fn.inputsave()
     vim.cmd.redraw()
-    password = vim.fn.inputsecret(vim.api.nvim_get_var("suda_prompt"))
+    password = vim.fn.inputsecret(configs.user_opts.prompt)
   end)
 
   pcall(vim.fn.inputrestore)

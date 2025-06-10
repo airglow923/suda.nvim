@@ -1,12 +1,7 @@
+local configs = require("suda.configs")
 local callbacks = require("suda.callbacks")
 
-if vim.g.suda_did_setup then
-  return
-end
-
-vim.api.nvim_set_var("suda_did_setup", true)
-
-if vim.g.suda_smart_edit then
+if configs.user_opts.suda_smart_edit then
   local augroup_suda_smart_edit =
     vim.api.nvim_create_augroup("suda_smart_edit", { clear = true })
 
@@ -47,7 +42,8 @@ vim.api.nvim_create_autocmd("FileWriteCmd", {
 
 local function read(args)
   local args = vim.fn.empty(args) and vim.fn.expand("%:p") or args
-  vim.fn.execute(vim.fn.printf("edit suda://%s", args))
+  local cmd = vim.fn.printf("edit suda://%s", vim.fn.fnameescape(args))
+  vim.fn.execute(cmd, "")
 end
 
 vim.api.nvim_create_user_command("SudaRead", function(params)
@@ -56,7 +52,8 @@ end, { bang = true, nargs = "?", complete = "file" })
 
 local function write(args)
   local args = vim.fn.empty(args) and vim.fn.expand("%:p") or args
-  vim.fn.execute(vim.fn.printf("write suda://%s", args))
+  local cmd = vim.fn.printf("write suda://%s", vim.fn.fnameescape(args))
+  vim.fn.execute(cmd, "")
 end
 
 vim.api.nvim_create_user_command("SudaWrite", function(params)
