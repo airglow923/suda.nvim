@@ -4,6 +4,7 @@ M.default_opts = {
   smart_edit = false,
   no_pass = false,
   prompt = "Password: ",
+  executable = "sudo",
 }
 
 M.user_opts = {}

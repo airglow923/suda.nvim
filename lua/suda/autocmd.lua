@@ -43,7 +43,7 @@ vim.api.nvim_create_autocmd("FileWriteCmd", {
 local function read(args)
   local args = vim.fn.empty(args) and vim.fn.expand("%:p") or args
   local cmd = vim.fn.printf("edit suda://%s", vim.fn.fnameescape(args))
-  vim.fn.execute(cmd, "")
+  vim.fn.execute(cmd)
 end
 
 vim.api.nvim_create_user_command("SudaRead", function(params)
@@ -53,7 +53,7 @@ end, { bang = true, nargs = "?", complete = "file" })
 local function write(args)
   local args = vim.fn.empty(args) and vim.fn.expand("%:p") or args
   local cmd = vim.fn.printf("write suda://%s", vim.fn.fnameescape(args))
-  vim.fn.execute(cmd, "")
+  vim.fn.execute(cmd)
 end
 
 vim.api.nvim_create_user_command("SudaWrite", function(params)

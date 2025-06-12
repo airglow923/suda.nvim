@@ -1,3 +1,4 @@
+local utils = require("suda.utils")
 local configs = require("suda.configs")
 
 local M = {}
@@ -7,7 +8,7 @@ local function escape_patterns(expr)
 end
 
 local function strip_prefix(expr)
-  return vim.fn.substitute(expr, "\v^(suda://)+", "", "")
+  return vim.fn.substitute(expr, "\\v^(suda://)+", "", "")
 end
 
 local function echomsg_exception()
@@ -19,42 +20,84 @@ local function echomsg_exception()
   end
 end
 
-local function SudaSystem(cmd, ...)
-  local varargs = { ... }
+local function enhance_cmd(opts, cmd)
+  local ret = cmd
+  local exe = configs.user_opts.executable
 
-  if vim.fn.has("win32") or configs.user_opts.no_pass then
-    cmd = vim.fn.printf("sudo %s", cmd)
+  if exe == "sudo" then
+    ret = utils.merge_table(opts, { "--" }, cmd)
+  end
+
+  local escaped = vim.fn.map(ret, function(_, v)
+    return vim.fn.shellescape(v)
+  end)
+
+  return vim.fn.join(utils.merge_table({ exe }, escaped), " ")
+end
+
+local function suda_system_list(cmd, ...)
+  local varargs = { ... }
+  local real_cmd = cmd
+
+  if vim.fn.has("win32") == 1 or configs.user_opts.no_pass then
+    real_cmd = enhance_cmd({}, cmd)
   else
-    cmd = vim.fn.printf("sudo -p '' -n %s", cmd)
+    real_cmd = enhance_cmd({ "-p", "", "-n" }, cmd)
   end
 
   if vim.api.nvim_get_option_value("verbose", {}) then
-    local txt = vim.fn.printf("[sudo] %s", cmd)
+    local txt = vim.fn.printf("[suda] %s", real_cmd)
     vim.api.nvim_echo({ { txt } }, true, {})
   end
 
-  local result = (varargs[0] ~= nil) and vim.fn.system(cmd, varargs[1])
-    or vim.fn.system(cmd)
+  local ret = (varargs[1] ~= nil) and vim.fn.systemlist(real_cmd, varargs[1])
+    or vim.fn.systemlist(real_cmd)
 
   if vim.api.nvim_get_vvar("shell_error") == 0 then
-    return result
+    return ret
   end
 
-  local password
+  local pw_needed = true
 
-  pcall(function()
-    vim.fn.inputsave()
-    vim.cmd.redraw()
-    password = vim.fn.inputsecret(configs.user_opts.prompt)
-  end)
+  if configs.user_opts.executable == "sudo" then
+    local pwless_cmd = enhance_cmd({ "-n" }, { "true" })
+    ret = vim.fn.systemlist(pwless_cmd)
 
-  pcall(vim.fn.inputrestore)
+    if vim.api.nvim_get_vvar("shell_error") == 0 then
+      real_cmd = enhance_cmd({}, cmd)
+      pw_needed = false
+    end
+  end
 
-  cmd = vim.fn.printf("sudo -p '' -S %s", cmd)
-  password =
-    vim.fn.printf("%s\n%s", password, (varargs[0] ~= nil) and varargs[1] or "")
+  local password = ""
 
-  return vim.fn.system({ cmd, password })
+  if pw_needed then
+    pcall(function()
+      vim.fn.inputsave()
+      vim.cmd.redraw()
+      password = vim.fn.inputsecret(configs.user_opts.prompt)
+    end)
+
+    pcall(vim.fn.inputrestore)
+
+    real_cmd = enhance_cmd({ "-p", "", "-S" }, cmd)
+  end
+
+  return vim.fn.systemlist(
+    real_cmd,
+    password .. "\n" .. ((varargs[1] ~= nil) and varargs[1] or "")
+  )
+end
+
+local function suda_system(cmd, ...)
+  local output = suda_system_list(utils.merge_table({ cmd }, { ... }))
+
+  return vim.fn.join(
+    vim.fn.map(output, function(_, v)
+      return vim.fn.substitute(v, "\n", "", "g")
+    end),
+    "\n"
+  )
 end
 
 local function SudaRead(expr, ...)
@@ -63,48 +106,29 @@ local function SudaRead(expr, ...)
   local options = vim.fn.extend({
     cmdarg = vim.api.nvim_get_vvar("cmdarg"),
     range = "",
-  }, { (varargs[0] ~= nil) and varargs[1] or {} })
+  }, { (varargs[1] ~= nil) and varargs[1] or {} })
 
   if vim.fn.filereadable(path) then
     local cmd =
       vim.fn.printf("%sread %s %s", options.range, options.cmdarg, path)
-    local output = vim.api.nvim_exec2(cmd)
+    local output = vim.fn.execute(cmd)
     return vim.fn.substitute(output, "^\r\\?\n", "", "")
   end
 
   local tempfile = vim.fn.tempname()
 
   local _, ret = pcall(function()
-    local redirect
     local cmd
     local result
 
-    if
-      vim.regex("%s"):match_str(vim.api.nvim_get_option_value("shellredir", {}))
-      ~= nil
-    then
-      redirect = vim.fn.printf(
-        vim.api.nvim_get_option_value("shellredir", {}),
-        vim.fn.shellescape(tempfile)
-      )
-    else
-      redirect = vim.api.nvim_get_option_value("shellredir", {})
-        .. vim.fn.shellescape(tempfile)
-    end
-
-    cmd = vim.fn.printf(
-      "cat %s %s",
-      vim.fn.shellescape(vim.fn.fnamemodify(path, ":p")),
-      redirect
-    )
-    result = SudaSystem(cmd)
+    result = suda_system_list({ "cat", vim.fn.fnamemodify(path, ":p") })
 
     if vim.api.nvim_get_vvar("shell_error") ~= 0 then
       error(result)
     end
 
     cmd = vim.fn.printf("%sread %s %s", options.range, options.cmdarg, tempfile)
-    result = vim.api.nvim_exec2(cmd)
+    result = vim.api.execute(cmd)
     result = vim.fn.substitute(
       result,
       escape_patterns(tempfile),
@@ -127,38 +151,29 @@ local function SudaWrite(expr, ...)
     cmdarg = vim.api.nvim_get_vvar("cmdarg"),
     cmdbang = vim.api.nvim_get_vvar("cmdbang"),
     range = "",
-  }, { (varargs[0] ~= nil) and varargs[1] or {} })
+  }, varargs[1] ~= nil and varargs[1] or {})
   local tempfile = vim.fn.tempname()
 
   local _, ret = pcall(function()
     local cmd = vim.fn.printf(
       "%swrite%s %s %s",
       options.range,
-      options.cmdbang and "!" or "",
+      options.cmdbang ~= 0 and "!" or "",
       options.cmdarg,
-      tempfile
+      vim.fn.fnameescape(tempfile)
     )
-    local echo_message = vim.api.nvim_exec2(cmd)
+    local echo_message = vim.fn.execute(cmd)
     local result
 
-    if vim.fn.has("win32") then
+    if vim.fn.has("win32") == 1 then
       cmd = vim.fn.exepath("tee")
-      result = SudaSystem(
-        vim.fn.printf(
-          "%s %s",
-          vim.fn.shellescape(cmd),
-          vim.fn.shellescape(path)
-        ),
+      result = suda_system(
+        cmd,
+        path,
         vim.fn.join(vim.fn.readfile(tempfile, "b"), "\n")
       )
     else
-      result = SudaSystem(
-        vim.fn.printf(
-          "dd if=%s of=%s bs=1048576",
-          vim.fn.shellescape(tempfile),
-          vim.fn.shellescape(path)
-        )
-      )
+      result = suda_system("dd", "if=" .. tempfile, "of=" .. path, "bs=1048576")
     end
 
     if vim.api.nvim_get_vvar("shell_error") ~= 0 then
@@ -244,7 +259,7 @@ local function SudaBufReadCmd()
   vim.api.nvim_set_option_value("undolevels", -1, {})
 
   local status, _ = pcall(function()
-    vim.api.nvim_exec2("0delete _")
+    vim.api.execute("0delete _")
     vim.api.nvim_set_option_value("buftype", "acwrite", { scope = "local" })
     vim.api.nvim_set_option_value("backup", false, { scope = "local" })
     vim.api.nvim_set_option_value("swapfile", false, { scope = "local" })
