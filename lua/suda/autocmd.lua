@@ -8,7 +8,7 @@ if configs.user_opts.suda_smart_edit then
   vim.api.nvim_create_autocmd("BufEnter", {
     group = augroup_suda_smart_edit,
     pattern = "*",
-    callback = callbacks.SudaBufEnter,
+    callback = callbacks.suda_BufEnter,
     nested = true,
   })
 end
@@ -19,25 +19,25 @@ local augroup_suda_plugin =
 vim.api.nvim_create_autocmd("BufReadCmd", {
   group = augroup_suda_plugin,
   pattern = "suda://*",
-  callback = callbacks.SudaBufReadCmd,
+  callback = callbacks.suda_BufReadCmd,
 })
 
 vim.api.nvim_create_autocmd("FileReadCmd", {
   group = augroup_suda_plugin,
   pattern = "suda://*",
-  callback = callbacks.SudaFileReadCmd,
+  callback = callbacks.suda_FileReadCmd,
 })
 
 vim.api.nvim_create_autocmd("BufWriteCmd", {
   group = augroup_suda_plugin,
   pattern = "suda://*",
-  callback = callbacks.SudaBufWriteCmd,
+  callback = callbacks.suda_BufWriteCmd,
 })
 
 vim.api.nvim_create_autocmd("FileWriteCmd", {
   group = augroup_suda_plugin,
   pattern = "suda://*",
-  callback = callbacks.SudaFileWriteCmd,
+  callback = callbacks.suda_FileWriteCmd,
 })
 
 local function read(args)

@@ -45,7 +45,7 @@ local function suda_systemlist(cmd, ...)
     real_cmd = enhance_cmd({ "-p", "", "-n" }, cmd)
   end
 
-  if vim.api.nvim_get_option_value("verbose", {}) then
+  if vim.api.nvim_get_option_value("verbose", {}) == 1 then
     local txt = vim.fn.printf("[suda] %s", real_cmd)
     vim.api.nvim_echo({ { txt } }, true, {})
   end
@@ -100,17 +100,21 @@ local function suda_system(cmd, ...)
   )
 end
 
-local function SudaRead(expr, ...)
+local function suda_read(expr, ...)
   local varargs = { ... }
   local path = vim.fn.fnamemodify(strip_prefix(vim.fn.expand(expr)), ":p")
   local options = vim.fn.extend({
     cmdarg = vim.api.nvim_get_vvar("cmdarg"),
     range = "",
-  }, { (varargs[1] ~= nil) and varargs[1] or {} })
+  }, varargs[1] ~= nil and varargs[1] or {})
 
-  if vim.fn.filereadable(path) then
-    local cmd =
-      vim.fn.printf("%sread %s %s", options.range, options.cmdarg, path)
+  if vim.fn.filereadable(path) == 1 then
+    local cmd = vim.fn.printf(
+      "%sread %s %s",
+      options.range,
+      options.cmdarg,
+      vim.fn.fnameescape(path)
+    )
     local output = vim.fn.execute(cmd)
     return vim.fn.substitute(output, "^\r\\?\n", "", "")
   end
@@ -127,7 +131,15 @@ local function SudaRead(expr, ...)
       error(result)
     end
 
-    cmd = vim.fn.printf("%sread %s %s", options.range, options.cmdarg, tempfile)
+    pcall(vim.fn.writefile, result, tempfile, "b")
+
+    cmd = vim.fn.printf(
+      "%sread %s %s",
+      options.range,
+      options.cmdarg,
+      vim.fn.fnameescape(tempfile)
+    )
+
     result = vim.api.execute(cmd)
     result = vim.fn.substitute(
       result,
@@ -144,7 +156,7 @@ local function SudaRead(expr, ...)
   return ret
 end
 
-local function SudaWrite(expr, ...)
+local function suda_write(expr, ...)
   local varargs = { ... }
   local path = vim.fn.fnamemodify(strip_prefix(vim.fn.expand(expr)), ":p")
   local options = vim.fn.extend({
@@ -187,7 +199,7 @@ local function SudaWrite(expr, ...)
       "g"
     )
 
-    if not vim.fn.empty(vim.fn.getftype(path)) then
+    if vim.fn.empty(vim.fn.getftype(path)) == 0 then
       echo_message = vim.fn.substitute(echo_message, "\\[New\\] ", "", "g")
     end
 
@@ -199,8 +211,8 @@ local function SudaWrite(expr, ...)
   return ret
 end
 
-local function SudaBufEnter()
-  if vim.api.nvim_buf_get_var(0, "suda_smart_edit_checked") then
+local function suda_BufEnter()
+  if vim.api.nvim_buf_get_var(0, "suda_smart_edit_checked") == 1 then
     return
   end
 
@@ -209,21 +221,24 @@ local function SudaBufEnter()
   local bufname = vim.fn.expand("<afile>")
 
   if
-    not vim.fn.empty(
-      vim.api.nvim_get_option_value("buftype", { buf = vim.fn.bufnr() })
-    )
-    or vim.fn.empty(bufname)
+    vim.fn.empty(
+        vim.api.nvim_get_option_value("buftype", { buf = vim.fn.bufnr() })
+      )
+      == 0
+    or vim.fn.empty(bufname) == 1
     or vim.fn.match(bufname, "^[a-z]\\+://*") ~= -1
-    or vim.fn.isdirectory(bufname)
+    or vim.fn.isdirectory(bufname) == 1
   then
     return
   end
 
-  if vim.fn.filereadable(bufname) and vim.fn.filewritable(bufname) then
+  if
+    vim.fn.filereadable(bufname) == 1 and vim.fn.filewritable(bufname) == 1
+  then
     return
   end
 
-  if vim.fn.empty(vim.fn.getftype(bufname)) then
+  if vim.fn.empty(vim.fn.getftype(bufname)) == 1 then
     local parent = vim.fn.fnamemodify(bufname, ":p")
 
     while parent ~= vim.fn.fnamemodify(parent, ":h") do
@@ -233,7 +248,9 @@ local function SudaBufEnter()
         return
       end
 
-      if not vim.fn.filereadable(parent) and vim.fn.isdirectory(parent) then
+      if
+        vim.fn.filereadable(parent) == 0 and vim.fn.isdirectory(parent) == 1
+      then
         break
       end
     end
@@ -243,15 +260,13 @@ local function SudaBufEnter()
     "keepalt keepjumps edit suda://%s",
     vim.fn.fnamemodify(bufname, ":p")
   )
-  vim.api.nvim_exec2(cmd)
+  vim.api.execute(cmd)
 
   local bufnr = vim.fn.str2nr(vim.fn.expand("<abuf>"))
-  -- TODO: remove after check
-  -- vim.api.nvim_exec2(vim.fn.printf("%dbwipeout", bufnr))
   vim.cmd.bwipeout(bufnr)
 end
 
-local function SudaBufReadCmd()
+local function suda_BufReadCmd()
   vim.cmd.doautocmd({ args = { "<nomodeline>", "BufReadPre" } })
 
   local ul = vim.api.nvim_get_option_value("undolevels", {})
@@ -259,16 +274,17 @@ local function SudaBufReadCmd()
   vim.api.nvim_set_option_value("undolevels", -1, {})
 
   local status, _ = pcall(function()
-    vim.api.execute("0delete _")
-    vim.api.nvim_set_option_value("buftype", "acwrite", { scope = "local" })
-    vim.api.nvim_set_option_value("backup", false, { scope = "local" })
     vim.api.nvim_set_option_value("swapfile", false, { scope = "local" })
     vim.api.nvim_set_option_value("undofile", false, { scope = "local" })
+
+    local echo_message = suda_read("<afile>", { range = 1 })
+    vim.api.execute("0delete _")
+
+    vim.api.nvim_set_option_value("buftype", "acwrite", { scope = "local" })
     vim.api.nvim_set_option_value("modified", false, { scope = "local" })
     vim.cmd.filetype("detect")
     vim.cmd.redraw()
 
-    local echo_message = SudaRead("<afile>", { range = 1 })
     vim.api.nvim_echo({ { echo_message } }, false, {})
   end)
 
@@ -282,7 +298,7 @@ local function SudaBufReadCmd()
   end)
 end
 
-local function SudaFileReadCmd()
+local function suda_FileReadCmd()
   vim.cmd.doautocmd({ args = { "<nomodeline>", "FileReadPre" } })
 
   local status, _ = pcall(function()
@@ -298,7 +314,7 @@ local function SudaFileReadCmd()
 
     vim.cmd.redraw()
 
-    local echo_message = SudaRead("<afile>", { range = range })
+    local echo_message = suda_read("<afile>", { range = range })
     vim.api.nvim_echo({ { echo_message } }, false, {})
   end)
 
@@ -309,7 +325,7 @@ local function SudaFileReadCmd()
   pcall(vim.cmd.doautocmd, { args = { "<nomodeline>", "FileReadPost" } })
 end
 
-local function SudaBufWriteCmd()
+local function suda_BufWriteCmd()
   vim.cmd.doautocmd({ args = { "<nomodeline>", "BufWritePre" } })
 
   local status, _ = pcall(function()
@@ -322,7 +338,7 @@ local function SudaBufWriteCmd()
 
     vim.cmd.redraw()
 
-    local echo_message = SudaWrite("<afile>", { range = "'[,']" })
+    local echo_message = suda_write("<afile>", { range = "'[,']" })
     vim.api.nvim_echo({ { echo_message } }, false, {})
   end)
 
@@ -333,13 +349,13 @@ local function SudaBufWriteCmd()
   pcall(vim.cmd.doautocmd, { args = { "<nomodeline>", "BufWritePost" } })
 end
 
-local function SudaFileWriteCmd()
+local function suda_FileWriteCmd()
   vim.cmd.doautocmd({ args = { "<nomodeline>", "FileWritePre" } })
 
   local status, _ = pcall(function()
     vim.cmd.redraw()
 
-    local echo_message = SudaWrite("<afile>", { range = "'[,']" })
+    local echo_message = suda_write("<afile>", { range = "'[,']" })
     vim.api.nvim_echo({ { echo_message } }, false, {})
   end)
 
@@ -368,10 +384,10 @@ vim.api.nvim_create_autocmd({
   callback = function() end,
 })
 
-M.SudaBufEnter = SudaBufEnter
-M.SudaBufReadCmd = SudaBufReadCmd
-M.SudaFileReadCmd = SudaFileReadCmd
-M.SudaBufWriteCmd = SudaBufWriteCmd
-M.SudaFileWriteCmd = SudaFileWriteCmd
+M.suda_BufEnter = suda_BufEnter
+M.suda_BufReadCmd = suda_BufReadCmd
+M.suda_FileReadCmd = suda_FileReadCmd
+M.suda_BufWriteCmd = suda_BufWriteCmd
+M.suda_FileWriteCmd = suda_FileWriteCmd
 
 return M
