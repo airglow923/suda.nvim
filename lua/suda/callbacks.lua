@@ -35,7 +35,7 @@ local function enhance_cmd(opts, cmd)
   return vim.fn.join(utils.merge_table({ exe }, escaped), " ")
 end
 
-local function suda_system_list(cmd, ...)
+local function suda_systemlist(cmd, ...)
   local varargs = { ... }
   local real_cmd = cmd
 
@@ -90,7 +90,7 @@ local function suda_system_list(cmd, ...)
 end
 
 local function suda_system(cmd, ...)
-  local output = suda_system_list(utils.merge_table({ cmd }, { ... }))
+  local output = suda_systemlist(utils.merge_table({ cmd }, { ... }))
 
   return vim.fn.join(
     vim.fn.map(output, function(_, v)
@@ -121,7 +121,7 @@ local function SudaRead(expr, ...)
     local cmd
     local result
 
-    result = suda_system_list({ "cat", vim.fn.fnamemodify(path, ":p") })
+    result = suda_systemlist({ "cat", vim.fn.fnamemodify(path, ":p") })
 
     if vim.api.nvim_get_vvar("shell_error") ~= 0 then
       error(result)
